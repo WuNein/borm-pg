@@ -4,11 +4,12 @@
 [![license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](https://github.com/WuNein/borm-pg/blob/master/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/WuNein/borm-pg)](https://goreportcard.com/report/github.com/WuNein/borm-pg)
 
-🏎️ 针对 orca-zhang/borm 进行了修改，暂时只能兼容PostgreSQL  
+🏎️ 针对 [orca-zhang/borm](https://github.com/orca-zhang/borm) 进行了修改，暂时只能兼容PostgreSQL  
 
 # 原因
 - 在b站时候用过borm，用起来感觉非常简洁
 - 自己学校里用PostgreSQL比较多
+- **可变条件**真的非常好用
 
 # 问题
 - 首先需要注意的是，这是写给PG的
@@ -147,7 +148,7 @@ ok  	borm	1.572s
 
 1. 引入包
    ``` golang
-   import b "github.com/orca-zhang/borm"
+   import b "github.com/WuNein/borm-pg"
    ```
 
 2. 定义Table对象
@@ -168,8 +169,10 @@ ok  	borm	1.572s
       ID   int64  `borm:"id"`
       Name string `borm:"name"`
       Tag  string `borm:"tag"`
+      Time int64  `borm:"ctime" type:"time"`
    }
-
+   // 新增了type:"time"标签，PGX貌似不支持插入int64作为timestamp
+   // time标签将自动转换成time.Time
    // 调用t.UseNameWhenTagEmpty()，可以用未设置borm tag的字段名本身作为待获取的db字段
    ```
 
@@ -183,8 +186,9 @@ ok  	borm	1.572s
    ``` golang
    // o可以是对象/slice/ptr slice
    n, err = t.Insert(&o)
-   n, err = t.InsertIgnore(&o)
-   n, err = t.ReplaceInto(&o)
+   //n, err = t.InsertIgnore(&o) 
+   // PG不存在的操作
+   //n, err = t.ReplaceInto(&o)
 
    // 只插入部分字段（其他使用缺省）
    n, err = t.Insert(&o, b.Fields("name", "tag"))
@@ -216,7 +220,8 @@ ok  	borm	1.572s
    n, err = t.Select(&ids, b.Fields("id"), b.Where("name = ?", name))
 
    // 可以强制索引
-   n, err = t.Select(&ids, b.Fields("id"), b.ForceIndex("idx_xxx"), b.Where("name = ?", name))
+   // PG不存在的操作
+   // n, err = t.Select(&ids, b.Fields("id"), b.ForceIndex("idx_xxx"), b.Where("name = ?", name))
    ```
 
 - 更新
@@ -240,13 +245,16 @@ ok  	borm	1.572s
    n, err = t.Update(&o, b.Fields("name"), b.Where(b.Eq("id", id)), b.Limit(1))
    ```
 
-- 删除
+- 删除  
+*公司里的经验告诉我，根本用不到Delete*
    ``` golang
    // 根据条件删除
    n, err = t.Delete(b.Where("name = ?", name))
 
    // 根据条件删除部分条数
-   n, err = t.Delete(b.Where(b.Eq("id", id)), b.Limit(1))
+   // PG不存在的操作
+   // 需要嵌套 IN 操作
+   //n, err = t.Delete(b.Where(b.Eq("id", id)), b.Limit(1))
    ```
 
 - **可变条件**
@@ -352,7 +360,7 @@ ok  	borm	1.572s
 
 |示例|说明|
 |-|-|
-|GroupBy("id", "name"...)|-|
+|GroupBy("id", "name"...)|注意PG select只能GROUPBY的元素或者聚合函数|
 
 ### Having
 
@@ -374,6 +382,7 @@ ok  	borm	1.572s
 |-|-|
 |Limit(1)|分页大小为1|
 |Limit(0, 100)|偏移位置为0，分页大小为100|
+注意：PG本来是不支持`limit(offset,limit)`的操作的，我修改一下代码，现在可以生成`limit x offset y`的形式
 
 ### OnDuplicateKeyUpdate
 
@@ -381,13 +390,8 @@ ok  	borm	1.572s
 |-|-|
 |OnDuplicateKeyUpdate(V{"name": "new"})|解决主键冲突的更新|
 
-### ForceIndex
 
-|示例|说明|
-|-|-|
-|ForceIndex("idx_biz_id")|解决索引选择性差的问题|
-
-# 如何mock
+# 如何mock 我暂时没测试
 
 ### mock步骤：
 - 调用`BormMock`指定需要mock的操作
@@ -451,7 +455,6 @@ ok  	borm	1.572s
 - Select存储到map
 - Insert从map读
 - Insert/Update支持非指针类型
-- Benchmark报告
 - 事务相关支持
 - 联合查询
 - 匿名组合问题
