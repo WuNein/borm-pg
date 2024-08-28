@@ -217,18 +217,48 @@ func ForceIndex(idx string) *forceIndexItem {
 	return &forceIndexItem{idx: idx}
 }
 
-func changePlaceHolder(temp string) string {
-	temp = strings.ReplaceAll(temp, "`", " ")
-	wordLists := strings.Split(temp, "?")
-	var tempSQL = new(strings.Builder)
-	for i, item := range wordLists {
-		if i != 0 {
-			tempSQL.WriteString("$" + strconv.Itoa(i))
+// func changePlaceHolder(temp string) string {
+// 	temp = strings.ReplaceAll(temp, "`", " ")
+// 	wordLists := strings.Split(temp, "?")
+// 	var tempSQL = new(strings.Builder)
+// 	for i, item := range wordLists {
+// 		if i != 0 {
+// 			tempSQL.WriteString("$" + strconv.Itoa(i))
 
-		}
-		tempSQL.WriteString(item)
-	}
-	return tempSQL.String()
+// 		}
+// 		tempSQL.WriteString(item)
+// 	}
+// 	return tempSQL.String()
+// } // 输入有？就不对了
+
+func changePlaceHolder(temp string) string {
+    var tempSQL = new(strings.Builder)
+    placeholderCount := 1
+    escaping := false
+
+    for i := 0; i < len(temp); i++ {
+        char := temp[i]
+
+        if char == '\\' {
+            // Handle escaping
+            escaping = !escaping
+            tempSQL.WriteByte(char) 
+            continue 
+        }
+
+        if char == '?' && !escaping {
+            // Replace unescaped question marks
+            tempSQL.WriteString("$" + strconv.Itoa(placeholderCount))
+            placeholderCount++
+        } else {
+            // Append other characters as is
+            tempSQL.WriteByte(char)
+        }
+
+        escaping = false // Reset escaping after processing a character
+    }
+
+    return tempSQL.String()
 }
 
 // Select .

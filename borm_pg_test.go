@@ -214,6 +214,19 @@ func TestInsertPG(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(n, ShouldEqual, 1)
 		})
+		Convey("single insert", func() {
+			o := x{
+				X:  "Orca1have?",
+				Y:  20,
+				Z1: 1551405784,
+			}
+			tbl := Table(db, "test").Debug().UsePG()
+
+			n, err := tbl.Insert(&o)
+
+			So(err, ShouldBeNil)
+			So(n, ShouldEqual, 1)
+		})
 		Convey("multiple insert", func() {
 			o := []*x{
 				{
