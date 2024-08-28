@@ -2,9 +2,11 @@
    borm is a better orm library for Go.
 
   Copyright (c) 2019 <http://ez8.co> <orca.zhang@yahoo.com>
+  Modified by <momiji@t-online.de>
 
   This library is released under the MIT License.
   Please see LICENSE file or visit https://github.com/orca-zhang/borm for details.
+  Please see LICENSE file or visit https://github.com/WuNein/borm-pg for details.
 */
 
 package borm
@@ -843,32 +845,33 @@ func (t *BormTable) Delete(args ...BormItem) (int, error) {
 }
 
 func (t *BormTable) inputArgs(stmtArgs *[]interface{}, cols []reflect2.StructField, rtPtr, s reflect2.Type, ptr bool, x unsafe.Pointer) {
-	for _, col := range cols {
-		var v interface{}
-		if ptr {
-			v = col.Get(rtPtr.UnsafeIndirect(x))
-		} else {
-			v = col.Get(s.PackEFace(x))
-		}
+    for _, col := range cols {
+        var v interface{}
+        if ptr {
+            v = col.Get(rtPtr.UnsafeIndirect(x))
+        } else {
+            v = col.Get(s.PackEFace(x))
+        }
 
-		fmt.Println(col.Tag().Lookup("type"))
-		// 时间类型特殊处理
-		// if col.Type().String() == "time.Time" {
-		// 	if t.Cfg.ToTimestamp {
-		// 		v = v.(*time.Time).Unix()
-		// 	} else {
-		// 		v = v.(*time.Time).Format(_timeLayout)
-		// 	}
-		// }
-		tempType := col.Type().String()
-		if res, ok := col.Tag().Lookup("type"); ok && res == "time" {
-			if tempType == "int64" {
-				v = time.Unix(*v.(*int64), 0)
-			}
-		}
+        // Handle time.Time based on 'type' tag
+        tempType := col.Type().String()
+        if res, ok := col.Tag().Lookup("type"); ok && res == "time" {
+            if tempType == "int64" {
+                v = time.Unix(*v.(*int64), 0)
+            }
+        }
 
-		*stmtArgs = append(*stmtArgs, v)
-	}
+        // Handle booleans for PostgreSQL
+        if t.Cfg.UsePG && col.Type().Kind() == reflect.Bool {
+            if v.(bool) {
+                v = "TRUE" // Or 't' if you prefer
+            } else {
+                v = "FALSE" // Or 'f'
+            }
+        }
+
+        *stmtArgs = append(*stmtArgs, v) // Append only once after all checks
+    }
 }
 
 // BormDBIFace .
