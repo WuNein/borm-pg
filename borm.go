@@ -192,7 +192,25 @@ func OnDuplicateKeyUpdate(keyVals V) *onDuplicateKeyUpdateItem {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(" on duplicate key update ")
+	if config.UsePG {
+        sb.WriteString(" ON CONFLICT ")
+        // Add conflict target (optional - can omit for default behavior)
+        // sb.WriteString("(") 
+        // conflictColCount := 0
+        // for k := range keyVals {
+        //     if conflictColCount > 0 {
+        //         sb.WriteString(", ")
+        //     }
+        //     fieldEscape(&sb, k)
+        //     conflictColCount++
+        // }
+        // sb.WriteString(")")
+
+        sb.WriteString(" DO UPDATE SET ")
+    } else {
+        sb.WriteString(" ON DUPLICATE KEY UPDATE ")
+    }
+
 	argCnt := 0
 	for k, v := range keyVals {
 		if argCnt > 0 {
@@ -868,20 +886,35 @@ type BormTable struct {
 	ctx  context.Context
 }
 
-func fieldEscape(sb *strings.Builder, field string) {
-	if field == "" {
-		return
-	}
-	// if strings.IndexAny(field, "( `.") == -1 {
-	// 	sb.WriteString("`")
-	// 	sb.WriteString(field)
-	// 	sb.WriteString("`")
-	// } else {
-	// 	// TODO: 处理alias场景
-	// 	sb.WriteString(field)
-	// }
-	sb.WriteString(field)
+// func fieldEscape(sb *strings.Builder, field string) {
+// 	if field == "" {
+// 		return
+// 	}
+// 	// if strings.IndexAny(field, "( `.") == -1 {
+// 	// 	sb.WriteString("`")
+// 	// 	sb.WriteString(field)
+// 	// 	sb.WriteString("`")
+// 	// } else {
+// 	// 	// TODO: 处理alias场景
+// 	// 	sb.WriteString(field)
+// 	// }
+// 	sb.WriteString(field)
 
+// }
+
+func fieldEscape(sb *strings.Builder, field string) {
+    if field == "" {
+        return
+    }
+    if t.Cfg.UsePG {
+        sb.WriteString("\"") 
+        sb.WriteString(field)
+        sb.WriteString("\"")
+    } else {
+        sb.WriteString("`")
+        sb.WriteString(field)
+        sb.WriteString("`")
+    }
 }
 
 func (t *BormTable) getStructFieldMap(s reflect2.StructType) map[string]reflect2.StructField {
@@ -1450,9 +1483,16 @@ func Between(field string, i interface{}, j interface{}) *ormCond {
 	return &ormCond{Field: field, Op: " between ? and ?", Args: []interface{}{i, j}}
 }
 
+func escapeLikePattern(pattern string) string {
+    escaped := strings.ReplaceAll(pattern, `\`, `\\`) 
+    escaped = strings.ReplaceAll(escaped, `%`, `\%`)
+    escaped = strings.ReplaceAll(escaped, `_`, `\_`)
+    return escaped
+}
+
 // Like .
 func Like(field string, pattern string) *ormCond {
-	return &ormCond{Field: field, Op: " like ?", Args: []interface{}{pattern}}
+    return &ormCond{Field: field, Op: " like ?", Args: []interface{}{escapeLikePattern(pattern)}}
 }
 
 // In .
